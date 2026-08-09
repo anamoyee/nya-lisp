@@ -1,8 +1,6 @@
 import dataclasses
 from collections.abc import Callable
 
-from .types._base import LispSerde
-
 
 @dataclasses.dataclass
 class Separators:
@@ -21,9 +19,5 @@ class Brackets:
 class Parser:
 	separator: Separators = dataclasses.field(default_factory=Separators)
 	bracket: Brackets = dataclasses.field(default_factory=Brackets)
+	fns: dict[str, Callable[..., str]] = dataclasses.field(default_factory=dict)
 
-	type LispTy = type[LispSerde]
-	tys: dict[str, LispTy] = dataclasses.field(default_factory=dict)
-
-	type LispFn = Callable[..., str]
-	fns: dict[str, LispFn] = dataclasses.field(default_factory=dict)
