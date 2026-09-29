@@ -1,18 +1,18 @@
 [project]
-name = 'nya-lisp'
-dynamic = ['version']
-description = 'A customizable lisp-like execution/templating engine, inspired by RoboTop (robotop.xyz) which was made by Colon (gdcolon.com) r!execute'
-readme = "README.md"
+name            = 'nya-lisp'
+dynamic         = ['version']
+description     = 'A customizable lisp-like execution/templating engine, inspired by RoboTop (robotop.xyz) which was made by Colon (gdcolon.com) r!execute'
+readme          = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies    = []
 
 # [project.scripts]
 # nya_lisp = "nya_lisp.__main__:main"
 
 [build-system]
-requires = ["hatchling"]
+requires      = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/nya_lisp/_version.py"
+path    = "src/nya_lisp/_version.py"
 pattern = '__version__(?:: str)? *= *\"(?P<version>[^\"]+)\"'
