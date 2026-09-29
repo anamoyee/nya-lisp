@@ -16,3 +16,11 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path    = "src/nya_lisp/_version.py"
 pattern = '__version__(?:: str)? *= *\"(?P<version>[^\"]+)\"'
+
+[dependency-groups]
+dev = [ #
+	"pytest==9.1.1",
+	"ruff==0.16.9",
+	"ty==0.0.84",
+	"uv==0.12.21",
+]
