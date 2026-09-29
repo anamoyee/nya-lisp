@@ -373,7 +373,7 @@ select = [
 	"PLC0207", # in str.split()[int], a maxsplit should be used, since it gets getitemed anyway
 	"PLC0208", # iteration over set literal, where tuple literal is faster to iterate over.
 	"PLC1802", # do not use `if len(x):`, use `if x:` instead
-	"PLC1901", # a variable of type `str` should not be `== ""`, use `not x` instead
+	# "PLC1901", # a variable of type `str` should not be `== ""`, use `not x` instead
 
 	"PLE010", # do not use `yield` or `return` in `__init__`
 	"PLE0115", # use of `nonlocal` and `global` at the same time on the same identifier
@@ -607,4 +607,3 @@ ignore = [
 # don't require annotations for tests
 "tests/**/*.py" = ["ANN"]
 "test*.py"      = ["ANN"]
-

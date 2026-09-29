@@ -5,7 +5,9 @@ description     = "A customizable lisp-like execution/templating engine, inspire
 readme          = "README.md"
 requires-python = ">=3.14"
 
-dependencies = []
+dependencies = [ #
+	"nya_scope>=0.3.1",
+]
 
 [project.scripts]
 nya_lisp = "nya_lisp.__main__:cli"
@@ -17,3 +19,11 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path    = "src/nya_lisp/_version.py"
 pattern = '__version__(?:: str)? *= *\"(?P<version>[^\"]+)\"'
+
+[dependency-groups]
+dev = [
+    "nya-fmt>=0.1.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.2",
+    "ty>=0.0.69",
+]
