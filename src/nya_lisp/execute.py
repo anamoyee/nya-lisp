@@ -9,34 +9,7 @@ from .handler_error import TooManyOrFewPositionalArgumentsInHandlerError
 from .parse_ import Node__Placeholder, Node__Text
 
 if TYPE_CHECKING:
-	import typing_extensions as te
-
 	from .parse_ import Node
-
-if True:  # builtin contexts
-
-	class EmptyContext(t.TypedDict):  # imported by placeholders/
-		pass
-
-	ParserMetaContext = t.TypedDict(
-		"ParserMetaContext",
-		{
-			"meta::parse_parens": "te.ReadOnly[tuple[str, str]]",
-			"meta::parse_sep": "te.ReadOnly[str]",
-		},
-	)
-
-	def ParserMetaContext__default() -> ParserMetaContext:
-		return {
-			"meta::parse_parens": ("{", "}"),
-			"meta::parse_sep": "|",
-		}
-
-	def ParserMetaContext__lisp() -> ParserMetaContext:
-		return {
-			"meta::parse_parens": ("(", ")"),
-			"meta::parse_sep": " ",
-		}
 
 
 if True:  # Errors

@@ -1,4 +1,5 @@
-from ...execute import Handler, ParserMetaContext
+from ...context import ParserMetaContext
+from ...execute import Handler
 
 
 class ParserSeparatorHandler(Handler[ParserMetaContext]):

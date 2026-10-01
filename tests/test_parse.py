@@ -7,7 +7,7 @@ import pytest
 from nya_lisp import Node__Placeholder, Node__Text, ParseError, Parser, parse
 
 if TYPE_CHECKING:
-	from nya_lisp.execute import ParserMetaContext
+	from nya_lisp.context import ParserMetaContext
 
 
 class TestParsePlainText:

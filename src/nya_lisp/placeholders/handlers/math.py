@@ -3,7 +3,8 @@ import functools
 import math
 from collections.abc import Iterable
 
-from ...execute import EmptyContext, Handler
+from ...context import EmptyContext
+from ...execute import Handler
 
 
 def assume_floats(strs: Iterable[str]) -> Iterable[float]:

@@ -3,17 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 type Node = Node__Text | Node__Placeholder
-from typing import TYPE_CHECKING, assert_never
+from typing import assert_never
 
-if TYPE_CHECKING:
-	from . import execute as m_execute
+from .context import ParserMetaContext, ParserMetaContext__default
 
 
 @dataclass(frozen=True, slots=True)
 class Node__Text:
 	inner: str
 
-	def unparse(self, ctx: m_execute.ParserMetaContext) -> str:
+	def unparse(self, ctx: ParserMetaContext) -> str:
 		return self.inner
 
 
@@ -27,7 +26,7 @@ class Node__Placeholder:
 		...,
 	]
 
-	def unparse(self, ctx: m_execute.ParserMetaContext) -> str:
+	def unparse(self, ctx: ParserMetaContext) -> str:
 		sep = ctx["meta::parse_sep"]
 		open_paren, close_paren = ctx["meta::parse_parens"]
 
@@ -112,20 +111,35 @@ class Parser:
 		self.source = source
 		self.pos = 0
 
-	def parse_with_parser_meta_context(self) -> tuple[Node__Placeholder, m_execute.ParserMetaContext]:
-		return (
-			self.parse(),
-			{
-				"meta::parse_parens": ("{", "}"),
-				"meta::parse_sep": "|",
-			},
-		)
+	@classmethod
+	def _raise_for_improper_meta_context(cls, ctx: ParserMetaContext) -> None:
+		if ctx["meta::parse_parens"][0].__len__() != 1 or ctx["meta::parse_parens"][1].__len__() != 1:
+			msg = f"{cls.__name__!r} currently doesnt support non-one length (i.e. 0, 2, 3, 4, ...) str as ctx::[meta::parse_parens][*]"
+			raise ValueError(msg)
+		if ctx["meta::parse_sep"].__len__() != 1:
+			msg = f"{cls.__name__!r} currently doesnt support non-one length (i.e. 0, 2, 3, 4, ...) str as ctx::[meta::parse_sep]"
+			raise ValueError(msg)
 
-	def parse(self) -> Node__Placeholder:  # todo: make ParserMetaContext passable here, customize the parens and sep right away.
-		node, closed = self._parse_placeholder(root=True)
+	def parse(
+		self,
+		ctx: ParserMetaContext = ParserMetaContext__default(),
+	) -> Node__Placeholder:
+		"""Parse the source string into a Node__Placeholder tree.
+
+		Returns:
+			The root Node__Placeholder of the parsed tree. (think of like if your input was wrapped in a placeholder: `{...}`, note that if the user expects the root scope to function as str.join, you should execute .args of this return value and not the return value itself, otherwise you'd be interpreting user's literal as matcher/handler name).
+
+		Raises:
+			ParseError: If the source string is not a valid placeholder expression.
+			ValueError: If the ctx is not a valid ParserMetaContext (e.g. if the parens or sep are not one character long, unfortunately Parser does not support multi-char delimiters (yet).).
+		"""  # ruff: ignore[docstring-extraneous-exception]
+
+		self._raise_for_improper_meta_context(ctx)
+
+		node, closed = self._parse_placeholder(root=True, ctx=ctx)
 
 		if closed:
-			msg = f"Unexpected '}}' at position {self.pos - 1}"
+			msg = f"Unexpected {ctx["meta::parse_parens"][1]!r} at position {self.pos - 1}"
 			raise ParseError(msg)
 
 		return node
@@ -134,6 +148,7 @@ class Parser:
 		self,
 		*,
 		root: bool,
+		ctx: ParserMetaContext,
 	) -> tuple[Node__Placeholder, bool]:
 		args: list[list[Node]] = [[]]
 		text_start = self.pos
@@ -141,14 +156,14 @@ class Parser:
 		while self.pos < len(self.source):
 			char = self.source[self.pos]
 
-			if char == "{":
+			if char == ctx["meta::parse_parens"][0]:
 				if text_start != self.pos:
 					args[-1].append(Node__Text(self.source[text_start : self.pos]))
 
 				placeholder_start = self.pos
 				self.pos += 1
 
-				nested, closed = self._parse_placeholder(root=False)
+				nested, closed = self._parse_placeholder(root=False, ctx=ctx)
 
 				if not closed:
 					msg = f"Unclosed placeholder starting at position {placeholder_start}"
@@ -158,7 +173,7 @@ class Parser:
 				text_start = self.pos
 				continue
 
-			if char == "|":
+			if char == ctx["meta::parse_sep"]:
 				if text_start != self.pos:
 					args[-1].append(Node__Text(self.source[text_start : self.pos]))
 
@@ -167,9 +182,9 @@ class Parser:
 				text_start = self.pos
 				continue
 
-			if char == "}":
+			if char == ctx["meta::parse_parens"][1]:
 				if root:
-					msg_0 = f"Unexpected '}}' at position {self.pos}"
+					msg_0 = f"Unexpected {ctx["meta::parse_parens"][1]!r} at position {self.pos}"
 					raise ParseError(msg_0)
 
 				if text_start != self.pos:

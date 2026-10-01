@@ -28,4 +28,5 @@ class VarHandler(Handler[VarContext]):
 				vars_dict[var_name] = var_value
 				return ""
 			case _:
-				raise AssertionError("unreachable: should have been caught by _assert_args_count")
+				msg = "unreachable: should have been caught by _assert_args_count"
+				raise AssertionError(msg)
