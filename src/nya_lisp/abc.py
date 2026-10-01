@@ -1,5 +1,7 @@
 import abc
+import dataclasses as _dc
 import typing as t
+from collections.abc import Iterable
 
 from .error import TooManyOrFewPositionalArgumentsInHandlerError
 
@@ -10,6 +12,9 @@ class Matcher[HandlerT, ContextT](abc.ABC):
 		"""Return a matching handler for placeholder `name`, or `None` if no match here is found."""
 
 
+@_dc.dataclass(
+	frozen=True, slots=True
+)  # no fields but a hint for any mixin classes which might want to add e.g. graceful overrides of the mathematical functions, they may add a
 class Handler[ContextT](abc.ABC):
 	@abc.abstractmethod
 	def handle(self, name: str, *args: str, ctx: ContextT) -> str:
@@ -57,6 +62,61 @@ class Handler[ContextT](abc.ABC):
 			raise TooManyOrFewPositionalArgumentsInHandlerError(len_args, expect)
 		if expect[1] is not None and len_args > expect[1]:
 			raise TooManyOrFewPositionalArgumentsInHandlerError(len_args, expect)
+
+	if True:  # _hh__* (handler helpers)
+
+		def _hh__mass_s2f(self, strs: Iterable[str], *, eager: bool = True) -> Iterable[float]:
+			"""Convert a given iterable of strings to an iterable of numbers.
+
+			### ❗ The `_NumberStringConversionHandlerMixin_` class may be subclassed to change the behavior of this method then mixed with same handler to create a new handler, e.g. for graceful handling of invalid input strings.
+
+			Args:
+				strs: An iterable of strings to convert to numbers.
+				eager: If `True`, the returned iterable will be a tuple, otherwise it will be a generator.
+
+			Returns:
+				An iterable of numbers converted from the given strings.
+
+			Raises:
+				ValueError: If any of the strings cannot be converted to a number.
+			"""  # ruff: ignore[docstring-extraneous-exception]
+			it = (self._hh__s2f(str_) for str_ in strs)
+
+			if eager:
+				it = tuple(it)
+
+			return it
+
+		def _hh__s2f(self, s: str) -> float:
+			"""Convert a given string to a number (float).
+
+			### ❗ The `_NumberStringConversionHandlerMixin_` class may be subclassed to change the behavior of this method then mixed with same handler to create a new handler, e.g. for graceful handling of invalid input strings.
+
+			Returns:
+				A float instance constructed from the string.
+
+			Raises:
+				ValueError: If the string cannot be converted to a number.
+			"""
+			try:
+				return float(s)
+			except ValueError as e:
+				placeholder_name = (
+					self.__class__.__name__  #
+					.removesuffix("Placeholder")
+					.removesuffix("Handler")
+					.lower()
+				)
+				msg = f"Failed to convert input string {s!r} to a number, for the needs of a {placeholder_name!r} placeholder."
+				raise ValueError(msg) from e
+
+		def _hh__f2s(self, n: float) -> str:
+			"""Convert a giveen number back to a string.
+
+			Returns:
+				A string representation of the number, with a decimal point if the number is a float, and without a decimal point if the number is an integer.
+			"""
+			return f"{n:zg}"
 
 
 class Placeholder[ContextT](Matcher[Handler[ContextT], ContextT], Handler[ContextT]):
