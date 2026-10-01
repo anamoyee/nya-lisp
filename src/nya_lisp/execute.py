@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import abc
 import typing as t
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from .handler_error import TooManyOrFewPositionalArgumentsInHandlerError
 from .parse_ import Node__Placeholder, Node__Text
 
 if TYPE_CHECKING:
+	from .abc import Handler, Matcher
 	from .parse_ import Node
 
 
@@ -39,66 +38,6 @@ if True:  # Errors
 		def __init__(self, original_exception: BaseException) -> None:
 			self.original_exception = original_exception
 			super().__init__(f"An error occurred while handling a placeholder: {original_exception!r}")
-
-
-if True:  # ABC
-
-	class Matcher[HandlerT, ContextT](abc.ABC):
-		@abc.abstractmethod
-		def match(self, name: str, *args: str, ctx: ContextT) -> HandlerT | None:
-			"""Return a matching handler for placeholder `name`, or `None` if no match here is found."""
-
-	class Handler[ContextT](abc.ABC):
-		@abc.abstractmethod
-		def handle(self, name: str, *args: str, ctx: ContextT) -> str:
-			"""Handle and evaluate the placeholder `name` with the given `args` and Context `ctx`, returning the evaluated string result."""
-
-		def into_matcher(self, name: str, *aliases: str) -> Matcher[t.Self, ContextT]:
-			"""Return a matcher that matches the given `name` and `aliases` to this handler.
-
-			Args:
-				name: The primary name of the placeholder to match. (for now there's no distinction between a primary name and an alias, but handlers or matchers may decide to do different things on one given name, but they dont know which is primary)
-				aliases: Additional names that should also match this handler.
-
-			Raises:
-				ValueError: If any of the names have leading or trailing whitespace, which is not supported in `into_matcher()`, if you REALLY need leading or trailing whitespace, write a verbose matcher impl.
-			"""
-
-			if (name, *aliases) != tuple({name, *aliases}):
-				msg = f"Duplicate placeholder names found in {name!r} and {aliases!r}. Each name must be unique. Edit the callsite, this meant to be more of a static helper, if you're using this dynamically, wrap your args in `*{{...}}`"
-				raise ValueError(msg)
-
-			names = {name, *aliases}
-
-			for name_ in names:
-				if name_.strip() != name_:
-					msg = f"Placeholder name {name_!r} has leading or trailing whitespace, which is not supported in `into_matcher()`, if you REALLY need leading or trailing whitespace, write a verbose matcher impl."
-					raise ValueError(msg)
-
-			handler = self
-
-			_Matcher = type(
-				f"{self.__class__.__name__}AutoMatcher",
-				(Matcher,),
-				{
-					"match": lambda self, name, *args, ctx: handler if name.lower() in names else None,  # ruff: ignore[unused-lambda-argument]
-				},
-			)
-
-			return _Matcher()
-
-		def _assert_args_count[T](self, len_args: int, *, expect: int | tuple[int | None, int] | tuple[int, int | None]) -> None:
-			if isinstance(expect, int):
-				expect = (expect, expect)
-
-			if expect[0] is not None and len_args < expect[0]:
-				raise TooManyOrFewPositionalArgumentsInHandlerError(len_args, expect)
-			if expect[1] is not None and len_args > expect[1]:
-				raise TooManyOrFewPositionalArgumentsInHandlerError(len_args, expect)
-
-
-class Placeholder[ContextT](Matcher[Handler[ContextT], ContextT], Handler[ContextT]):
-	"""A placeholder is a matcher and handler for a specific placeholder name. This is only a shorthand, functions as a convenience for the implementor. The mechanism actually looks for a `Matcher[Handler[...], ...]`."""
 
 
 class Executor[ContextT]:
@@ -175,6 +114,7 @@ if True:  # type checking tests:
 	if TYPE_CHECKING:  # type checking test 1 (empty TD)
 
 		def __():
+			from .abc import Placeholder
 			from .parse_ import parse
 
 			class EmptyTD(t.TypedDict):
@@ -208,6 +148,7 @@ if True:  # type checking tests:
 	if TYPE_CHECKING:  # typing check 2 (non-empty TD)
 
 		def __():
+			from .abc import Placeholder
 			from .parse_ import parse
 
 			class EmbedContextTD(t.TypedDict):
@@ -247,6 +188,7 @@ if True:  # type checking tests:
 	if TYPE_CHECKING:  # typing check 3 (intersection of TDs)
 
 		def __():
+			from .abc import Placeholder
 			from .parse_ import parse
 
 			class EmbedContextTD(t.TypedDict):
@@ -305,6 +247,7 @@ if True:  # type checking tests:
 	if TYPE_CHECKING:
 
 		def __():
+			from .abc import Placeholder
 			from .parse_ import parse
 
 			class SillyPlaceholder(Placeholder[int]):

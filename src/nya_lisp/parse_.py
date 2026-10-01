@@ -6,6 +6,7 @@ type Node = Node__Text | Node__Placeholder
 from typing import assert_never
 
 from .context import ParserMetaContext, ParserMetaContext__default
+from .error import ParseError
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,10 +101,6 @@ class Node__Placeholder:
 			stripped_args.append([new_left_part, *new_middle_parts, new_right_part])
 
 		return Node__Placeholder(tuple(tuple(arg) for arg in stripped_args))
-
-
-class ParseError(ValueError):
-	"""Raised when a parsing error occurs in the input string."""
 
 
 class Parser:
