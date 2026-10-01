@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 type Node = Node__Text | Node__Placeholder
+from . import execute as m_execute
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,15 @@ class Parser:
 	def __init__(self, source: str) -> None:
 		self.source = source
 		self.pos = 0
+
+	def parse_with_parser_meta_context(self) -> tuple[Node__Placeholder, m_execute.ParserMetaContext]:
+		return (
+			self.parse(),
+			m_execute.ParserMetaContext(
+				parse_parens=("{", "}"),
+				parse_sep="|",
+			),
+		)
 
 	def parse(self) -> Node__Placeholder:
 		node, closed = self._parse_placeholder(root=True)

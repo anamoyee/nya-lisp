@@ -1,10 +1,8 @@
-from ..execute import EmptyTD, Matcher
-from .handlers import math as h
+from .handlers import math as _h
 
-
-class AddPlaceholder(h.AddHandler, Matcher[h.AddHandler, EmptyTD]):
-	def match(self, name: str, *_, ctx: EmptyTD) -> h.AddHandler | None:
-		if name in {"add", "sum", "+"}:
-			return self
-
-		return None
+ADD = _h.AddHandler().into_matcher("add", "sum", "+")
+SUB = _h.SubHandler().into_matcher("sub", "subtract", "-")
+MUL = _h.MulHandler().into_matcher("mul", "multiply", "*")
+DIV = _h.DivHandler().into_matcher("div", "divide", "/")
+POW = _h.PowHandler().into_matcher("pow", "power", "**")
+SQRT = _h.SqrtHandler().into_matcher("sqrt")

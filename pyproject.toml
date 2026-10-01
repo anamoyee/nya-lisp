@@ -22,5 +22,6 @@ dev = [ #
 	"pytest==9.1.1",
 	"ruff==0.16.9",
 	"ty==0.0.84",
+	"typing-extensions>=4.16.0",
 	"uv==0.12.21",
 ]
