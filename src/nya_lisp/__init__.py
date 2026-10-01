@@ -2,6 +2,7 @@ from ._version import __version__ as __version__
 from .execute import Executor as Executor
 from .execute import Handler as Handler
 from .execute import Matcher as Matcher
+from .execute import ParserMetaContext as ParserMetaContext
 from .execute import Placeholder as Placeholder
 from .parse_ import Node as Node
 from .parse_ import Node__Placeholder as Node__Placeholder

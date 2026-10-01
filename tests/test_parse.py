@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from nya_lisp import Node__Placeholder, Node__Text, ParseError, Parser, parse
+
+if TYPE_CHECKING:
+	from nya_lisp.execute import ParserMetaContext
 
 
 class TestParsePlainText:
@@ -601,3 +606,179 @@ def test_parser_class() -> None:
 			),
 		)
 	)
+
+
+def test_unparse_manually_constructed_placeholder() -> None:
+	ctx: ParserMetaContext = {
+		"meta::parse_parens": ("{", "}"),
+		"meta::parse_sep": "|",
+	}
+
+	assert Node__Text("hello world").unparse(ctx) == "hello world"
+
+	node = Node__Placeholder(
+		args=(
+			(
+				Node__Text("prefix_"),
+				Node__Placeholder(
+					args=(
+						(Node__Text("fn"),),
+						(Node__Placeholder(args=((Node__Text("arg1"),),)),),
+						(
+							Node__Text("val_"),
+							Node__Placeholder(args=((Node__Text("arg2"),),)),
+						),
+					)
+				),
+				Node__Text("_middle_"),
+				Node__Placeholder(
+					args=(
+						(
+							Node__Text("x"),
+							Node__Placeholder(args=((Node__Text("y"),),)),
+						),
+					)
+				),
+				Node__Text("_suffix"),
+			),
+			(Node__Text("alt_branch"),),
+		)
+	)
+
+	expected = "{prefix_{fn|{arg1}|val_{arg2}}_middle_{x{y}}_suffix|alt_branch}"
+	assert node.unparse(ctx) == expected
+
+
+@pytest.mark.parametrize(
+	"s",
+	[
+		"{foo}",
+		"{}",
+		"{a|b}",
+		"{a|b|c|d}",
+		"{|}",
+		"{|b}",
+		"{a|}",
+		"{||}",
+		"{  foo  |  bar  }",
+		"{{a}}",
+		"{a{b}c}",
+		"{a|{b|c}|d}",
+		"{{{a}}}",
+		"{start {fn|{arg1}|val_{arg2}} end}",
+	],
+)
+def test_parse_unparse_roundtrip(s: str) -> None:
+	ctx: ParserMetaContext = {
+		"meta::parse_parens": ("{", "}"),
+		"meta::parse_sep": "|",
+	}
+	root = parse(s)
+	node = root.args[0][0]
+	assert isinstance(node, Node__Placeholder)
+	assert node.unparse(ctx) == s
+
+
+def test_stripped() -> None:
+	node = Node__Placeholder(
+		args=(
+			(
+				Node__Text("  hello  "),
+				Node__Placeholder(
+					args=(
+						(Node__Text("  world  "),),
+						(Node__Text("  alt  "),),
+					)
+				),
+				Node__Text("  end  "),
+			),
+			(Node__Text("  branch2  "),),
+		)
+	)
+
+	expected = Node__Placeholder(
+		args=(
+			(
+				Node__Text("hello  "),
+				Node__Placeholder(
+					args=(
+						(Node__Text("world"),),
+						(Node__Text("alt"),),
+					)
+				),
+				Node__Text("  end"),
+			),
+			(Node__Text("branch2"),),
+		)
+	)
+
+	assert node.stripped() == expected
+
+
+@pytest.mark.parametrize(
+	("before_strip", "after_strip"),
+	[
+		(
+			"{foo}",
+			"{foo}",
+		),
+		(
+			"{}",
+			"{}",
+		),
+		(
+			"{a|b}",
+			"{a|b}",
+		),
+		(
+			"{a|b|c|d}",
+			"{a|b|c|d}",
+		),
+		(
+			"{|}",
+			"{|}",
+		),
+		(
+			"{|b}",
+			"{|b}",
+		),
+		(
+			"{a|}",
+			"{a|}",
+		),
+		(
+			"{||}",
+			"{||}",
+		),
+		(
+			"{  foo  |  bar  }",
+			"{foo|bar}",
+		),
+		(
+			"{{a}}",
+			"{{a}}",
+		),
+		(
+			"{a{b}c}",
+			"{a{b}c}",
+		),
+		(
+			"{a|{b|c}|d}",
+			"{a|{b|c}|d}",
+		),
+		(
+			"{{{a}}}",
+			"{{{a}}}",
+		),
+		(
+			"{start {fn|{arg1}|val_{arg2}} end}",
+			"{start {fn|{arg1}|val_{arg2}} end}",
+		),
+	],
+)
+def test_stripped_unparsed(before_strip: str, after_strip: str) -> None:
+	ctx: ParserMetaContext = {
+		"meta::parse_parens": ("{", "}"),
+		"meta::parse_sep": "|",
+	}
+	assert parse(before_strip).stripped().unparse(ctx) == f"{{{after_strip}}}"

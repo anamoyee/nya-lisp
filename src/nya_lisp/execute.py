@@ -163,7 +163,11 @@ class Executor[ContextT]:
 			case Node__Text():
 				return source.inner
 			case Node__Placeholder():
-				source = source.args
+				source = (
+					(
+						source,  #
+					),
+				)
 
 		name_unconstructed, *args_unconstructed = source
 
