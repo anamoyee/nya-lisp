@@ -2,6 +2,21 @@
     "repos":
         [
             {
+                "repo": "https://github.com/pytest-dev/pytest",
+                "rev": "8.3.4",
+                "hooks":
+                    [
+                        {
+                            "id": "pytest",
+                            "name": "pytest",
+                            "entry": "pytest",
+                            "language": "system",
+                            "types": ["python"],
+                            "pass_filenames": false,
+                        },
+                    ],
+            },
+            {
                 "repo": "https://github.com/pre-commit/pre-commit-hooks",
                 "rev": "v5.0.0",
                 "hooks":
