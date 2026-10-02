@@ -38,7 +38,7 @@ class MulHandler(Handler[EmptyContext]):
 		return self._hh__f2s(result)
 
 
-class DivHandler(Handler[EmptyContext]):
+class TrueDivHandler(Handler[EmptyContext]):
 	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		if len(args) == 0:
 			return self._hh__f2s(1.0)  # identity
@@ -49,6 +49,22 @@ class DivHandler(Handler[EmptyContext]):
 		return self._hh__f2s(
 			functools.reduce(
 				lambda x, y: x / y,
+				self._hh__mass_s2f(args),
+			)
+		)
+
+
+class FloorDivHandler(Handler[EmptyContext]):
+	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+		if len(args) == 0:
+			return self._hh__f2s(1.0)  # identity
+
+		if len(args) == 1:
+			return self._hh__f2s(self._hh__s2f(args[0]))
+
+		return self._hh__f2s(
+			functools.reduce(
+				lambda x, y: x // y,
 				self._hh__mass_s2f(args),
 			)
 		)
