@@ -2,8 +2,7 @@
     "repos":
         [
             {
-                "repo": "https://github.com/pytest-dev/pytest",
-                "rev": "8.3.4",
+                "repo": "local",
                 "hooks":
                     [
                         {
