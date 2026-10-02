@@ -2,20 +2,6 @@
     "repos":
         [
             {
-                "repo": "local",
-                "hooks":
-                    [
-                        {
-                            "id": "pytest",
-                            "name": "pytest",
-                            "entry": "pytest",
-                            "language": "system",
-                            "types": ["python"],
-                            "pass_filenames": false,
-                        },
-                    ],
-            },
-            {
                 "repo": "https://github.com/pre-commit/pre-commit-hooks",
                 "rev": "v5.0.0",
                 "hooks":
@@ -47,6 +33,20 @@
                 "repo": "https://github.com/astral-sh/ty-pre-commit",
                 "rev": "v0.0.80",
                 "hooks": [{ "id": "ty" }],
+            },
+            {
+                "repo": "local",
+                "hooks":
+                    [
+                        {
+                            "id": "pytest",
+                            "name": "pytest",
+                            "entry": "pytest",
+                            "language": "system",
+                            "types": ["python"],
+                            "pass_filenames": false,
+                        },
+                    ],
             },
         ],
 }
