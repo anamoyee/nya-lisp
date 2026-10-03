@@ -41,7 +41,14 @@ if True:  # Errors
 
 
 class Executor[ContextT]:
-	def __init__(self, *matchers: Matcher[Handler[ContextT], ContextT]) -> None:
+	def __init__(
+		self,
+		*matchers: Matcher[Handler[ContextT], ContextT],
+	) -> None:
+		# todo: add support for both dfs and bfs handlers, e.g. impl {#|...}, contextmanager-like things, e.g. {embed|{embed|title|whatever}}.
+		# maybe dumb down Matcher class so it only gets to see name: str, this would much simplify the logic and allow for each handler to choose when or if to evaluate its arguments
+		# Make a wrapper handler abc "HandlerDFS" that overrides the handle() method with a concrete `@final` implementation that runs its own abc method handle2 (think of a better name) that has all arguments pre-evaluated.
+
 		self.matchers = matchers
 
 	def find_handler(self, name: str, *args: str, ctx: ContextT) -> Handler[ContextT] | None:
