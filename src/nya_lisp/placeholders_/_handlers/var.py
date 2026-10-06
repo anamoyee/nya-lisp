@@ -1,6 +1,6 @@
 import typing as t
 
-from ...execute import Handler
+from ...abc import HandlerDFS
 
 VarContext = t.TypedDict(
 	"VarContext",
@@ -10,11 +10,11 @@ VarContext = t.TypedDict(
 )
 
 
-class VarHandler(Handler[VarContext]):
-	class TD(VarContext): ...
+class VarHandler(HandlerDFS[VarContext]):
+	Context = VarContext
 
-	def handle(self, name: str, *args: str, ctx: VarContext) -> str:
-		self._assert_args_count(len(args), expect=(1, 2))
+	def handle_dfs(self, name: str, *args: str, ctx: VarContext) -> str:
+		self._assert_argc(len(args), expect=(1, 2))
 
 		if "var::vars" not in ctx:
 			ctx["var::vars"] = {}

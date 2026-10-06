@@ -9,7 +9,7 @@ __ALL__ = (
 			(TRUEDIV := _h.TrueDivHandler().into_matcher("tdiv", "div", "truediv", "divide", "/")),
 			(FLOORDIV := _h.FloorDivHandler().into_matcher("fdiv", "floordiv", "floordivide", "//")),
 			(POW := _h.PowHandler().into_matcher("pow", "power", "**")),
-			(SQRT := _h.SqrtHandler().into_matcher("sqrt")),
+			(SQRT := _h.SqrtHandler().into_matcher("sqrt", "√")),
 		)
 	),
 )

@@ -7,80 +7,63 @@ from typing import TYPE_CHECKING
 from .parse_ import Node__Placeholder, Node__Text
 
 if TYPE_CHECKING:
-	from .abc import Handler, Matcher
+	from .abc import HandlerBFS, Matcher
 	from .parse_ import Node
 
-
-if True:  # Errors
-
-	class BaseExecutorError(Exception):
-		"""Raised when an error occurs during the execution of a placeholder."""
-
-	class ExecutorNoMatchingHandlerError[ContextT](BaseExecutorError):
-		"""Raised when no handler is found for a placeholder during execution."""
-
-		name: str
-		args: tuple[str, ...]
-		ctx: ContextT
-
-		def __init__(self, name: str, *args: str, ctx: ContextT) -> None:
-			self.name = name
-			self.args = args
-			self.ctx = ctx
-
-			super().__init__(f"No matching handler found for placeholder {name!r} with args {args!r} and context {ctx!r}")
-
-	class ExecutorHandlerRaisedError(BaseExecutorError):
-		"""A matched handler's handle() method raised an exception while trying to compute its result."""
-
-		original_exception: BaseException
-
-		def __init__(self, original_exception: BaseException) -> None:
-			self.original_exception = original_exception
-			super().__init__(f"An error occurred while handling a placeholder: {original_exception!r}")
+from .error import ExecutorHandlerRaisedError, ExecutorNoMatchingHandlerError
 
 
 class Executor[ContextT]:
 	def __init__(
 		self,
-		*matchers: Matcher[Handler[ContextT], ContextT],
+		*matchers: Matcher[HandlerBFS[ContextT], ContextT],
 	) -> None:
-		# todo: add support for both dfs and bfs handlers, e.g. impl {#|...}, contextmanager-like things, e.g. {embed|{embed|title|whatever}}.
-		# maybe dumb down Matcher class so it only gets to see name: str, this would much simplify the logic and allow for each handler to choose when or if to evaluate its arguments
-		# Make a wrapper handler abc "HandlerDFS" that overrides the handle() method with a concrete `@final` implementation that runs its own abc method handle2 (think of a better name) that has all arguments pre-evaluated.
-
 		self.matchers = matchers
 
-	def find_handler(self, name: str, *args: str, ctx: ContextT) -> Handler[ContextT] | None:
+	def __call__(self, source: Node | Sequence[Node], *, ctx: ContextT) -> str:
+		return self.execute(source, ctx=ctx)
+
+	def find_handler(self, name: str, *, ctx: ContextT) -> HandlerBFS[ContextT] | None:
 		for matcher in self.matchers:
-			handler = matcher.match(name, *args, ctx=ctx)
+			handler = matcher.match(name, ctx=ctx)
 			if handler is not None:
 				return handler
 
 		return None
 
-	def construct(self, *implicitly_separated_parts: Node, ctx: ContextT) -> str:
+	def construct(self, *arg_parts: Node, ctx: ContextT) -> str:
 		"""Return a string constructed from the given Nodes, assuming a "".join() is required after executing each Node that needs executing (assume this set of nodes represents a single logical argument)."""
 
-		return "".join(self.execute(part, ctx=ctx) for part in implicitly_separated_parts)
+		return "".join(self.execute(arg_part_node, ctx=ctx) for arg_part_node in arg_parts)
+
+	def _execute_placeholder(self, node: Node__Placeholder, *, ctx: ContextT) -> str:
+		name_parts, *args_parts = node.args
+
+		name = self.construct(*name_parts, ctx=ctx)
+
+		handler = self.find_handler(name, ctx=ctx)
+
+		if handler is None:
+			raise ExecutorNoMatchingHandlerError(name, ctx=ctx)
+
+		try:
+			return handler.handle_bfs(name, *args_parts, ctx=ctx, executor=self)
+		except Exception as e:
+			raise ExecutorHandlerRaisedError(e) from e
 
 	def execute(
 		self,
-		source:
-		#
-		Node
-		| Sequence[  # arguments, separated by |
-			Sequence[  # same argument, only implicit spliting of nodes which have to be of differing type.
-				Node
-			],
-		],
+		source: (
+			Node  #
+			| Sequence[Node,]  # shorthand for "".join(.execute(x) for x in sequence_of_nodes
+		),
 		*,
 		ctx: ContextT,
 	) -> str:
 		"""Execute the given source and return the resulting string.
 
 		Args:
-			source: The source to execute, which can be a `Node` or `Node__Placeholder().args` value.
+			source: The source to execute, which can be a `Node` or a sequence of `Node` objects (a `Sequence[Node]` input is a shorthand for `"".join(.execute(x) for x in sequence_of_nodes)`).
 			ctx: The context to pass to the handlers during execution. You may view the mutation of this context after execution if you assign it to a variable in your scope.
 
 		Returns:
@@ -91,51 +74,34 @@ class Executor[ContextT]:
 			ExecutorHandlerRaisedError: If a matched handler's handle() method raised an exception
 		"""  # ruff: ignore[docstring-extraneous-exception]
 
-		match source:
-			case Node__Text():
-				return source.inner
-			case Node__Placeholder():
-				source = (
-					(
-						source,  #
-					),
-				)
+		if isinstance(source, Node__Text):
+			return source.inner
 
-		name_unconstructed, *args_unconstructed = source
+		if isinstance(source, Node__Placeholder):
+			return self._execute_placeholder(source, ctx=ctx)
 
-		name = self.construct(*name_unconstructed, ctx=ctx)
-		args = [self.construct(*arg, ctx=ctx) for arg in args_unconstructed]
-
-		handler = self.find_handler(name, *args, ctx=ctx)
-
-		if handler is None:
-			raise ExecutorNoMatchingHandlerError[ContextT](name, *args, ctx=ctx)
-
-		try:
-			return handler.handle(name, *args, ctx=ctx)
-		except BaseException as e:
-			raise ExecutorHandlerRaisedError(e) from e
+		return "".join(self.execute(node, ctx=ctx) for node in source)
 
 
 if True:  # type checking tests:
 	if TYPE_CHECKING:  # type checking test 1 (empty TD)
 
 		def __():
-			from .abc import Placeholder
+			from .abc import PlaceholderDFS
 			from .parse_ import parse
 
 			class EmptyTD(t.TypedDict):
 				pass
 
-			class ReturnHelloPlaceholder(Placeholder[EmptyTD]):
-				def match(self, name: str, *_, ctx: EmptyTD) -> t.Self | None:
+			class ReturnHelloPlaceholder(PlaceholderDFS[EmptyTD]):
+				def match(self, name: str, ctx: EmptyTD) -> t.Self | None:
 					match name:
 						case "hello":
 							return self
 						case _:
 							return None
 
-				def handle(self, name: str, *args: str, ctx: EmptyTD) -> str:
+				def handle_dfs(self, name: str, *args: str, ctx: EmptyTD) -> str:
 					return "hi!"
 
 			class ReturnHelloAppContext(t.TypedDict):
@@ -148,20 +114,20 @@ if True:  # type checking tests:
 			)
 
 			executor.execute(
-				parse("Meow meow {hello}").args,
+				parse("Meow meow {hello}"),
 				ctx=ctx,
 			)
 
 	if TYPE_CHECKING:  # typing check 2 (non-empty TD)
 
 		def __():
-			from .abc import Placeholder
+			from .abc import PlaceholderDFS
 			from .parse_ import parse
 
 			class EmbedContextTD(t.TypedDict):
 				embed: dict[str, object]
 
-			class DiscordEmbedPlaceholder(Placeholder[EmbedContextTD]):
+			class DiscordEmbedPlaceholder(PlaceholderDFS[EmbedContextTD]):
 				def match(self, name: str, *_, ctx: EmbedContextTD) -> t.Self | None:
 					match name:
 						case "embed":
@@ -169,7 +135,7 @@ if True:  # type checking tests:
 						case _:
 							return None
 
-				def handle(self, name: str, *args: str, ctx: EmbedContextTD) -> str:
+				def handle_dfs(self, name: str, *args: str, ctx: EmbedContextTD) -> str:
 					ctx["embed"] = {
 						"title": "Hello",
 						"description": "This is a test embed.",
@@ -188,14 +154,14 @@ if True:  # type checking tests:
 			)
 
 			executor.execute(
-				parse("Meow{embed}").args,
+				parse("Meow{embed}"),
 				ctx=ctx,
 			)
 
 	if TYPE_CHECKING:  # typing check 3 (intersection of TDs)
 
 		def __():
-			from .abc import Placeholder
+			from .abc import PlaceholderDFS
 			from .parse_ import parse
 
 			class EmbedContextTD(t.TypedDict):
@@ -204,15 +170,15 @@ if True:  # type checking tests:
 			class LoggerContextTD(t.TypedDict):
 				log: list[str]
 
-			class DiscordEmbedPlaceholder(Placeholder[EmbedContextTD]):
-				def match(self, name: str, *_, ctx: EmbedContextTD) -> t.Self | None:
+			class DiscordEmbedPlaceholder(PlaceholderDFS[EmbedContextTD]):
+				def match(self, name: str, ctx: EmbedContextTD) -> t.Self | None:
 					match name:
 						case "embed":
 							return self
 						case _:
 							return None
 
-				def handle(self, name: str, *args: str, ctx: EmbedContextTD) -> str:
+				def handle_dfs(self, name: str, *args: str, ctx: EmbedContextTD) -> str:
 					ctx["embed"] = {
 						"title": "Hello",
 						"description": "This is a test embed.",
@@ -221,15 +187,15 @@ if True:  # type checking tests:
 
 					return ""
 
-			class LoggerPlaceholder(Placeholder[LoggerContextTD]):
-				def match(self, name: str, *_, ctx: LoggerContextTD) -> t.Self | None:
+			class LoggerPlaceholder(PlaceholderDFS[LoggerContextTD]):
+				def match(self, name: str, ctx: LoggerContextTD) -> t.Self | None:
 					match name:
 						case "log":
 							return self
 						case _:
 							return None
 
-				def handle(self, name: str, *args: str, ctx: LoggerContextTD) -> str:
+				def handle_dfs(self, name: str, *args: str, ctx: LoggerContextTD) -> str:
 					ctx["log"].append("|".join(args))
 					return ""
 
@@ -247,17 +213,17 @@ if True:  # type checking tests:
 			)
 
 			executor.execute(
-				parse("Meow{embed} and {log}").args,
+				parse("Meow{embed} and {log}"),
 				ctx=ctx,
 			)
 
 	if TYPE_CHECKING:
 
 		def __():
-			from .abc import Placeholder
+			from .abc import PlaceholderDFS
 			from .parse_ import parse
 
-			class SillyPlaceholder(Placeholder[int]):
+			class SillyPlaceholder(PlaceholderDFS[int]):
 				def match(self, name: str, *_, ctx: int) -> t.Self | None:
 					match name:
 						case "silly":
@@ -274,27 +240,27 @@ if True:  # type checking tests:
 			class Logger2ContextTD(t.TypedDict):
 				log: str
 
-			class LoggerPlaceholder(Placeholder[LoggerContextTD]):
-				def match(self, name: str, *_, ctx: LoggerContextTD) -> t.Self | None:
+			class LoggerPlaceholder(PlaceholderDFS[LoggerContextTD]):
+				def match(self, name: str, ctx: LoggerContextTD) -> t.Self | None:
 					match name:
 						case "log":
 							return self
 						case _:
 							return None
 
-				def handle(self, name: str, *args: str, ctx: LoggerContextTD) -> str:
+				def handle_dfs(self, name: str, *args: str, ctx: LoggerContextTD) -> str:
 					ctx["log"].append("|".join(args))
 					return ""
 
-			class Logger2Placeholder(Placeholder[Logger2ContextTD]):
-				def match(self, name: str, *_, ctx: Logger2ContextTD) -> t.Self | None:
+			class Logger2Placeholder(PlaceholderDFS[Logger2ContextTD]):
+				def match(self, name: str, ctx: Logger2ContextTD) -> t.Self | None:
 					match name:
 						case "log2":
 							return self
 						case _:
 							return None
 
-				def handle(self, name: str, *args: str, ctx: Logger2ContextTD) -> str:
+				def handle_dfs(self, name: str, *args: str, ctx: Logger2ContextTD) -> str:
 					ctx["log"] += "|".join(args)
 					return ""
 
@@ -310,7 +276,7 @@ if True:  # type checking tests:
 			)
 
 			executor.execute(
-				parse("Meow meow {silly}").args,
+				parse("Meow meow {silly}"),
 				ctx=MyCtx(log=[]),
 			)
 

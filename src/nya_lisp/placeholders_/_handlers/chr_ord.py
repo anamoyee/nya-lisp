@@ -1,18 +1,12 @@
+from ...abc import HandlerDFS
 from ...context import EmptyContext
-from ...execute import Handler
 
 
-class ChrHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_args_count(len(args), expect=1)
+class ChrHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
+		self._assert_argc(len(args), expect=1)
 
-		arg = args[0]
-
-		try:
-			num = int(arg, base=0)
-		except ValueError as e:
-			msg = f"Failed to convert input string {arg!a} to an integer."
-			raise ValueError(msg) from e
+		num = self._hh__s2i(*args)
 
 		if not (0 <= num <= 0x10FFFF):
 			msg = f"Input integer {num} is out of range for 'chr'. Valid range is 0 to 0x10FFFF."
@@ -21,9 +15,9 @@ class ChrHandler(Handler[EmptyContext]):
 		return chr(num)
 
 
-class OrdHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_args_count(len(args), expect=1)
+class OrdHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
+		self._assert_argc(len(args), expect=1)
 
 		arg = args[0]
 
