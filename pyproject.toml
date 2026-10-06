@@ -1,7 +1,7 @@
 [project]
 name            = 'nya-lisp'
 dynamic         = ['version']
-description     = 'A customizable lisp-like execution/templating engine, inspired by RoboTop (robotop.xyz) which was made by Colon (gdcolon.com) r!execute'
+description     = 'A distant dialect of lisp, customizable execution/templating engine, inspired by `r!execute` from RoboTop (robotop.xyz) which was made by Colon (gdcolon.com)'
 readme          = "README.md"
 requires-python = ">=3.12"
 dependencies    = []
