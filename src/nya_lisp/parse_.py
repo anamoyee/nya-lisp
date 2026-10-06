@@ -3,17 +3,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 type Node = Node__Text | Node__Placeholder
-from typing import assert_never
+import typing as t
 
 from .context import ParserMetaContext, ParserMetaContext__default
-from .error import ParseError
+from .error import RootLevelContainsArgumentSeparatorError, UnclosedOpenError, UnexpectedCloseError
 
 
 @dataclass(frozen=True, slots=True)
 class Node__Text:
 	inner: str
 
+	def stripped(self) -> Node__Text:
+		"""Return a new copy of this Node__Text with leading and trailing whitespace stripped.
+
+		Returns:
+			A new copy of this Node__Text with leading and trailing whitespace stripped.
+		"""
+		return Node__Text(self.inner.strip())
+
 	def unparse(self, ctx: ParserMetaContext) -> str:
+		"""Return the string representation of this Node__Text, which is just its inner string."""
 		return self.inner
 
 
@@ -28,6 +37,8 @@ class Node__Placeholder:
 	]
 
 	def unparse(self, ctx: ParserMetaContext) -> str:
+		"""Return the string representation of this Node__Placeholder, which is the concatenation of its args, separated by the separator defined in the context, and wrapped in the parentheses defined in the context."""
+
 		sep = ctx["meta::parse_sep"]
 		open_paren, close_paren = ctx["meta::parse_parens"]
 
@@ -65,7 +76,7 @@ class Node__Placeholder:
 					case Node__Placeholder():
 						new_part = part.stripped()
 					case _:
-						assert_never(part)
+						t.assert_never(part)
 
 				stripped_args.append([new_part])
 				continue
@@ -78,7 +89,7 @@ class Node__Placeholder:
 				case Node__Placeholder():
 					new_left_part = left_part.stripped()
 				case _:
-					assert_never(left_part)
+					t.assert_never(left_part)
 
 			new_middle_parts: list[Node] = []
 			for middle_part in middle_parts:
@@ -88,7 +99,7 @@ class Node__Placeholder:
 					case Node__Placeholder():
 						new_middle_parts.append(middle_part.stripped())
 					case _:
-						assert_never(middle_part)
+						t.assert_never(middle_part)
 
 			match right_part:
 				case Node__Text():
@@ -96,7 +107,7 @@ class Node__Placeholder:
 				case Node__Placeholder():
 					new_right_part = right_part.stripped()
 				case _:
-					assert_never(right_part)
+					t.assert_never(right_part)
 
 			stripped_args.append([new_left_part, *new_middle_parts, new_right_part])
 
@@ -117,17 +128,28 @@ class Parser:
 			msg = f"{cls.__name__!r} currently doesnt support non-one length (i.e. 0, 2, 3, 4, ...) str as ctx::[meta::parse_sep]"
 			raise ValueError(msg)
 
-	def parse(
+	def parse_one(self, ctx: ParserMetaContext = ParserMetaContext__default()) -> tuple[Node, ...]:
+		placeholder_node = self.parse_into_node(ctx=ctx)
+
+		match placeholder_node.args:
+			case (first_args_arg_parts,):
+				return first_args_arg_parts
+
+		msg = "Root level of the source string passed to `parse_one()` contains an argument separator, which is not allowed. (i.e. the root level must be a placeholder with just one 'argument' which is considered a raw string)."
+		raise RootLevelContainsArgumentSeparatorError(msg)
+
+	def parse_into_node(
 		self,
 		ctx: ParserMetaContext = ParserMetaContext__default(),
 	) -> Node__Placeholder:
-		"""Parse the source string into a Node__Placeholder tree.
+		"""Parse the source string into a Node__Placeholder tree. Wrap the root source into a Node__Placeholder (aka, the root level CAN contain argument separators - if you don't want this behaviour, use `.parse_one()` which forbids separators and gives you a plug-and-play (to execute) output).
 
 		Returns:
 			The root Node__Placeholder of the parsed tree. (think of like if your input was wrapped in a placeholder: `{...}`, note that if the user expects the root scope to function as str.join, you should execute .args of this return value and not the return value itself, otherwise you'd be interpreting user's literal as matcher/handler name).
 
 		Raises:
-			ParseError: If the source string is not a valid placeholder expression.
+			UnexpectedCloseError: If an unexpected closing brace is encountered during parsing.
+			UnclosedOpenError: If an opening brace is not closed during parsing.
 			ValueError: If the ctx is not a valid ParserMetaContext (e.g. if the parens or sep are not one character long, unfortunately Parser does not support multi-char delimiters (yet).).
 		"""  # ruff: ignore[docstring-extraneous-exception]
 
@@ -137,7 +159,7 @@ class Parser:
 
 		if closed:
 			msg = f"Unexpected {ctx["meta::parse_parens"][1]!r} at position {self.pos - 1}"
-			raise ParseError(msg)
+			raise UnexpectedCloseError(msg)
 
 		return node
 
@@ -164,7 +186,7 @@ class Parser:
 
 				if not closed:
 					msg = f"Unclosed placeholder starting at position {placeholder_start}"
-					raise ParseError(msg)
+					raise UnclosedOpenError(msg)
 
 				args[-1].append(nested)
 				text_start = self.pos
@@ -182,7 +204,7 @@ class Parser:
 			if char == ctx["meta::parse_parens"][1]:
 				if root:
 					msg_0 = f"Unexpected {ctx["meta::parse_parens"][1]!r} at position {self.pos}"
-					raise ParseError(msg_0)
+					raise UnexpectedCloseError(msg_0)
 
 				if text_start != self.pos:
 					args[-1].append(Node__Text(self.source[text_start : self.pos]))
@@ -198,7 +220,7 @@ class Parser:
 
 		if not root:
 			msg_1 = "Unclosed placeholder at end of input"
-			raise ParseError(msg_1)
+			raise UnclosedOpenError(msg_1)
 
 		if text_start != self.pos:
 			args[-1].append(Node__Text(self.source[text_start : self.pos]))
@@ -209,5 +231,44 @@ class Parser:
 		)
 
 
-def parse(source: str) -> Node__Placeholder:
-	return Parser(source).parse()
+def parse(source: str, *, ctx: ParserMetaContext = ParserMetaContext__default()) -> tuple[Node, ...]:
+	return Parser(source).parse_one(ctx=ctx)
+
+
+def unparse(nodes: tuple[Node, ...] | Node, ctx: ParserMetaContext) -> str:
+	"""Unparse a tuple of nodes (or a single Node) into a string representation.
+
+	Args:
+		nodes: A tuple of nodes to unparse.
+		ctx: The parser meta context to use for unparsing.
+
+	Returns:
+		A string representation of the nodes.
+	"""
+	if not isinstance(nodes, tuple):
+		nodes = (nodes,)
+
+	return "".join(node.unparse(ctx) for node in nodes)
+
+
+@t.overload
+def stripped(nodes: tuple[Node, ...]) -> tuple[Node, ...]: ...
+
+
+@t.overload
+def stripped(nodes: Node) -> Node: ...
+
+
+def stripped(nodes: tuple[Node, ...] | Node) -> tuple[Node, ...] | Node:
+	"""Return a new copy of the given nodes (or a single Node) with leading and trailing whitespace stripped.
+
+	Args:
+		nodes: A tuple of nodes or a single Node to strip.
+
+	Returns:
+		A new copy of the given nodes (or a single Node) with leading and trailing whitespace stripped.
+	"""
+	if not isinstance(nodes, tuple):
+		return nodes.stripped()
+
+	return tuple(node.stripped() for node in nodes)

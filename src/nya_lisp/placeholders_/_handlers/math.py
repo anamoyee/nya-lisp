@@ -2,21 +2,21 @@ import functools
 import math
 from collections.abc import Iterable
 
+from ...abc import HandlerDFS
 from ...context import EmptyContext
-from ...execute import Handler
 
 
 def assume_floats(strs: Iterable[str]) -> Iterable[float]:
 	return (float(s) for s in strs)
 
 
-class AddHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+class AddHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		return self._hh__f2s(sum(self._hh__mass_s2f(args)))
 
 
-class SubHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+class SubHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		if len(args) == 0:
 			return self._hh__f2s(0.0)  # identity
 
@@ -31,15 +31,15 @@ class SubHandler(Handler[EmptyContext]):
 		)
 
 
-class MulHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+class MulHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		result = math.prod(self._hh__mass_s2f(args))
 
 		return self._hh__f2s(result)
 
 
-class TrueDivHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+class TrueDivHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		if len(args) == 0:
 			return self._hh__f2s(1.0)  # identity
 
@@ -54,8 +54,8 @@ class TrueDivHandler(Handler[EmptyContext]):
 		)
 
 
-class FloorDivHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+class FloorDivHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		if len(args) == 0:
 			return self._hh__f2s(1.0)  # identity
 
@@ -87,10 +87,10 @@ def _float_pow_javascriptlike(x: float, y: float) -> float:
 		return float("inf")
 
 
-class PowHandler(Handler[EmptyContext]):
+class PowHandler(HandlerDFS[EmptyContext]):
 	"""For >2 len of input values, applies the power operation from left to right, e.g. 2^3^2 = (2^3)^2 = 64, NOT: ~~2^(3^2) = 512~~."""
 
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		if len(args) == 0:
 			return self._hh__f2s(1.0)  # identity
 
@@ -105,9 +105,9 @@ class PowHandler(Handler[EmptyContext]):
 		)
 
 
-class SqrtHandler(Handler[EmptyContext]):
-	def handle(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_args_count(len(args), expect=(0, 1))
+class SqrtHandler(HandlerDFS[EmptyContext]):
+	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
+		self._assert_argc(len(args), expect=(0, 1))
 
 		if len(args) == 0:
 			return self._hh__f2s(1.0)  # identity

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .._handlers import str as _h
 
 __ALL__ = (
@@ -5,4 +7,5 @@ __ALL__ = (
 	(LOWER := _h.StrLowerHandler().into_matcher("lower", "lowercase", "str.lower")),
 	(UPPER := _h.StrUpperHandler().into_matcher("upper", "uppercase", "str.upper")),
 	(TITLE := _h.StrTitleHandler().into_matcher("title", "titlecase", "str.title")),
+	(QUOTE := _h.QuotePlaceholder()),
 )

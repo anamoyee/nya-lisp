@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from nya_lisp import Node__Placeholder, Node__Text, ParseError, Parser, parse
+import nya_lisp as nl
+from nya_lisp import Node__Placeholder, Node__Text, Parser, parse, stripped, unparse
 
 if TYPE_CHECKING:
 	from nya_lisp.context import ParserMetaContext
@@ -12,285 +13,213 @@ if TYPE_CHECKING:
 
 class TestParsePlainText:
 	def test_empty_string(self) -> None:
-		assert parse("") == Node__Placeholder(args=((),))
+		assert parse("") == ()
 
 	def test_simple_text(self) -> None:
-		assert parse("hello world") == Node__Placeholder(
-			args=(
-				(  #
-					Node__Text("hello world"),
-				),
-			),
+		assert parse("hello world") == (  #
+			Node__Text("hello world"),
 		)
 
 	def test_whitespace(self) -> None:
-		source = "  line1  line2 \t "
-		assert parse(source) == Node__Placeholder(
-			args=(
-				(  #
-					Node__Text("  line1  line2 \t "),
-				),
-			),
+		assert parse("  line1  line2 \t ") == (  #
+			Node__Text("  line1  line2 \t "),
 		)
 
 	def test_newlines(self) -> None:
-		source = "line1 \n line2"
-		assert parse(source) == Node__Placeholder(
-			args=(
-				(  #
-					Node__Text("line1 \n line2"),
-				),
-			),
+		assert parse("line1 \n line2") == (  #
+			Node__Text("line1 \n line2"),
 		)
 
 	def test_unicode_text(self) -> None:
-		source = "Hello 🐱 World 🌍"
-		assert parse(source) == Node__Placeholder(
-			args=(
-				(  #
-					Node__Text("Hello 🐱 World 🌍"),
-				),
-			),
+		assert parse("Hello 🐱 World 🌍") == (  #
+			Node__Text("Hello 🐱 World 🌍"),
 		)
 
 	def test_special_characters_prose(self) -> None:
-		source = "1 + 2 = 3; [x] * (y) / $100 \\ escaping"
-		assert parse(source) == Node__Placeholder(
-			args=(
-				(  #
-					Node__Text("1 + 2 = 3; [x] * (y) / $100 \\ escaping"),
-				),
-			)
+		assert parse("1 + 2 = 3; [x] * (y) / $100 \\ escaping") == (  #
+			Node__Text("1 + 2 = 3; [x] * (y) / $100 \\ escaping"),
 		)
 
 
 class TestParseSimplePlaceholders:
 	def test_single_placeholder(self) -> None:
-		assert parse("{foo}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("foo"),
-							),
-						)
+		assert parse("{foo}") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("foo"),
 					),
-				),
-			)
+				)
+			),
 		)
 
 	def test_empty_placeholder(self) -> None:
-		assert parse("{}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(  #
-							(),
-						)
-					),
-				),
-			)
+		assert parse("{}") == (
+			Node__Placeholder(
+				args=(  #
+					(),
+				)
+			),
 		)
 
 	def test_placeholder_surrounded_by_text(self) -> None:
-		assert parse("prefix{var}suffix") == Node__Placeholder(
-			args=(
-				(
-					Node__Text("prefix"),
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("var"),
-							),
-						)
+		assert parse("prefix{var}suffix") == (
+			Node__Text("prefix"),
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("var"),
 					),
-					Node__Text("suffix"),
-				),
-			)
+				)
+			),
+			Node__Text("suffix"),
 		)
 
 	def test_multiple_consecutive_placeholders(self) -> None:
-		assert parse("{a}{b}{c}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("a"),
-							),
-						)
+		assert parse("{a}{b}{c}") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("a"),
 					),
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("b"),
-							),
-						)
+				)
+			),
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("b"),
 					),
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("c"),
-							),
-						)
+				)
+			),
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("c"),
 					),
-				),
-			)
+				)
+			),
 		)
 
 	def test_multiple_placeholders_interspersed_with_text(self) -> None:
-		assert parse("A{x}B{y}C") == Node__Placeholder(
-			args=(
-				(
-					Node__Text("A"),
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("x"),
-							),
-						)
+		assert parse("A{x}B{y}C") == (
+			Node__Text("A"),
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("x"),
 					),
-					Node__Text("B"),
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("y"),
-							),
-						)
+				)
+			),
+			Node__Text("B"),
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("y"),
 					),
-					Node__Text("C"),
-				),
-			)
+				)
+			),
+			Node__Text("C"),
 		)
 
 
 class TestParsePlaceholdersWithArguments:
 	def test_two_arguments(self) -> None:
-		assert parse("{a|b}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("a"),
-							),
-							(  #
-								Node__Text("b"),
-							),
-						)
+		assert parse("{a|b}") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("a"),
 					),
-				),
-			)
+					(  #
+						Node__Text("b"),
+					),
+				)
+			),
 		)
 
 	def test_multiple_arguments(self) -> None:
-		assert parse("{a|b|c|d}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("a"),
-							),
-							(  #
-								Node__Text("b"),
-							),
-							(  #
-								Node__Text("c"),
-							),
-							(  #
-								Node__Text("d"),
-							),
-						)
+		assert parse("{a|b|c|d}") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("a"),
 					),
-				),
-			)
+					(  #
+						Node__Text("b"),
+					),
+					(  #
+						Node__Text("c"),
+					),
+					(  #
+						Node__Text("d"),
+					),
+				)
+			),
 		)
 
 	def test_empty_arguments(self) -> None:
-		assert parse("{|}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(  #
-							(),
-							(),
-						)
-					),
-				),
-			)
+		assert parse("{|}") == (
+			Node__Placeholder(
+				args=(  #
+					(),
+					(),
+				)
+			),
 		)
 
 	def test_empty_first_argument(self) -> None:
-		assert parse("{|b}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(),
-							(  #
-								Node__Text("b"),
-							),
-						)
+		assert parse("{|b}") == (
+			Node__Placeholder(
+				args=(
+					(),
+					(  #
+						Node__Text("b"),
 					),
-				),
-			)
+				)
+			),
 		)
 
 	def test_empty_second_argument(self) -> None:
-		assert parse("{a|}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("a"),
-							),
-							(),
-						)
+		assert parse("{a|}") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("a"),
 					),
-				),
-			)
+					(),
+				)
+			),
 		)
 
 	def test_multiple_empty_arguments(self) -> None:
-		assert parse("{||}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(  #
-							(),
-							(),
-							(),
-						)
-					),
-				),
-			)
+		assert parse("{||}") == (
+			Node__Placeholder(
+				args=(  #
+					(),
+					(),
+					(),
+				)
+			),
 		)
 
 	def test_whitespace_in_arguments(self) -> None:
-		assert parse("{  foo  |  bar  }") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("  foo  "),
-							),
-							(  #
-								Node__Text("  bar  "),
-							),
-						)
+		assert parse("{  foo  |  bar  }") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("  foo  "),
 					),
-				),
-			)
+					(  #
+						Node__Text("  bar  "),
+					),
+				)
+			),
 		)
 
 
 class TestParseRootLevelPipes:
 	def test_root_two_branches(self) -> None:
-		assert parse("a|b") == Node__Placeholder(
+		assert Parser("a|b").parse_into_node() == Node__Placeholder(
 			args=(
 				(  #
 					Node__Text("a"),
@@ -298,11 +227,11 @@ class TestParseRootLevelPipes:
 				(  #
 					Node__Text("b"),
 				),
-			)
+			),
 		)
 
 	def test_root_multiple_branches(self) -> None:
-		assert parse("a|b|c") == Node__Placeholder(
+		assert Parser("a|b|c").parse_into_node() == Node__Placeholder(
 			args=(
 				(  #
 					Node__Text("a"),
@@ -317,7 +246,7 @@ class TestParseRootLevelPipes:
 		)
 
 	def test_root_single_pipe(self) -> None:
-		assert parse("|") == Node__Placeholder(
+		assert Parser("|").parse_into_node() == Node__Placeholder(
 			args=(  #
 				(),
 				(),
@@ -325,7 +254,7 @@ class TestParseRootLevelPipes:
 		)
 
 	def test_root_empty_left(self) -> None:
-		assert parse("|b") == Node__Placeholder(
+		assert Parser("|b").parse_into_node() == Node__Placeholder(
 			args=(
 				(),
 				(  #
@@ -335,7 +264,7 @@ class TestParseRootLevelPipes:
 		)
 
 	def test_root_empty_right(self) -> None:
-		assert parse("a|") == Node__Placeholder(
+		assert Parser("a|").parse_into_node() == Node__Placeholder(
 			args=(
 				(  #
 					Node__Text("a"),
@@ -345,7 +274,7 @@ class TestParseRootLevelPipes:
 		)
 
 	def test_root_multiple_pipes_empty(self) -> None:
-		assert parse("||") == Node__Placeholder(
+		assert Parser("||").parse_into_node() == Node__Placeholder(
 			args=(  #
 				(),
 				(),
@@ -354,7 +283,7 @@ class TestParseRootLevelPipes:
 		)
 
 	def test_root_pipes_with_placeholders(self) -> None:
-		assert parse("foo|{bar}|baz") == Node__Placeholder(
+		assert Parser("foo|{bar}|baz").parse_into_node() == Node__Placeholder(
 			args=(
 				(  #
 					Node__Text("foo"),
@@ -377,140 +306,120 @@ class TestParseRootLevelPipes:
 
 class TestParseNestedPlaceholders:
 	def test_directly_nested(self) -> None:
-		assert parse("{{a}}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(
-								Node__Placeholder(
-									args=(
-										(  #
-											Node__Text("a"),
-										),
-									)
+		assert parse("{{a}}") == (
+			Node__Placeholder(
+				args=(
+					(
+						Node__Placeholder(
+							args=(
+								(  #
+									Node__Text("a"),
 								),
-							),
-						)
+							)
+						),
 					),
-				),
-			)
+				)
+			),
 		)
 
 	def test_nested_within_text(self) -> None:
-		assert parse("{a{b}c}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(
-								Node__Text("a"),
-								Node__Placeholder(
-									args=(
-										(  #
-											Node__Text("b"),
-										),
-									)
+		assert parse("{a{b}c}") == (
+			Node__Placeholder(
+				args=(
+					(
+						Node__Text("a"),
+						Node__Placeholder(
+							args=(
+								(  #
+									Node__Text("b"),
 								),
-								Node__Text("c"),
-							),
-						)
+							)
+						),
+						Node__Text("c"),
 					),
-				),
-			)
+				)
+			),
 		)
 
 	def test_nested_inside_argument(self) -> None:
-		assert parse("{a|{b|c}|d}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("a"),
-							),
-							(
-								Node__Placeholder(
-									args=(
-										(  #
-											Node__Text("b"),
-										),
-										(  #
-											Node__Text("c"),
-										),
-									)
-								),
-							),
-							(  #
-								Node__Text("d"),
-							),
-						)
+		assert parse("{a|{b|c}|d}") == (
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("a"),
 					),
-				),
-			)
+					(
+						Node__Placeholder(
+							args=(
+								(  #
+									Node__Text("b"),
+								),
+								(  #
+									Node__Text("c"),
+								),
+							)
+						),
+					),
+					(  #
+						Node__Text("d"),
+					),
+				)
+			),
 		)
 
 	def test_deeply_nested(self) -> None:
-		assert parse("{{{a}}}") == Node__Placeholder(
-			args=(
-				(
-					Node__Placeholder(
-						args=(
-							(
-								Node__Placeholder(
-									args=(
-										(
-											Node__Placeholder(
-												args=(
-													(  #
-														Node__Text("a"),
-													),
-												)
+		assert parse("{{{a}}}") == (
+			Node__Placeholder(
+				args=(
+					(
+						Node__Placeholder(
+							args=(
+								(
+									Node__Placeholder(
+										args=(
+											(  #
+												Node__Text("a"),
 											),
-										),
-									)
+										)
+									),
 								),
-							),
-						)
+							)
+						),
 					),
-				),
-			)
+				)
+			),
 		)
 
 	def test_complex_nesting_mix(self) -> None:
-		assert parse("start {fn|{arg1}|val_{arg2}} end") == Node__Placeholder(
-			args=(
-				(
-					Node__Text("start "),
-					Node__Placeholder(
-						args=(
-							(  #
-								Node__Text("fn"),
-							),
-							(
-								Node__Placeholder(
-									args=(
-										(  #
-											Node__Text("arg1"),
-										),
-									)
-								),
-							),
-							(
-								Node__Text("val_"),
-								Node__Placeholder(
-									args=(
-										(  #
-											Node__Text("arg2"),
-										),
-									)
-								),
-							),
-						)
+		assert parse("start {fn|{arg1}|val_{arg2}} end") == (
+			Node__Text("start "),
+			Node__Placeholder(
+				args=(
+					(  #
+						Node__Text("fn"),
 					),
-					Node__Text(" end"),
-				),
-			)
+					(
+						Node__Placeholder(
+							args=(
+								(  #
+									Node__Text("arg1"),
+								),
+							)
+						),
+					),
+					(
+						Node__Text("val_"),
+						Node__Placeholder(
+							args=(
+								(  #
+									Node__Text("arg2"),
+								),
+							)
+						),
+					),
+				)
+			),
+			Node__Text(" end"),
 		)
 
 
@@ -526,7 +435,7 @@ class TestParseErrors:
 		],
 	)
 	def test_unexpected_closing_brace(self, source: str, expected_msg_pattern: str) -> None:
-		with pytest.raises(ParseError, match=expected_msg_pattern):
+		with pytest.raises(nl.error.UnexpectedCloseError, match=expected_msg_pattern):
 			parse(source)
 
 	@pytest.mark.parametrize(
@@ -544,7 +453,7 @@ class TestParseErrors:
 		],
 	)
 	def test_unclosed_placeholder(self, source: str) -> None:
-		with pytest.raises(ParseError, match=r"Unclosed placeholder"):
+		with pytest.raises(nl.error.UnclosedOpenError, match=r"Unclosed placeholder"):
 			parse(source)
 
 
@@ -593,7 +502,7 @@ class TestDataNodes:
 
 
 def test_parser_class() -> None:
-	assert Parser("{test}").parse() == Node__Placeholder(
+	assert Parser("{test}").parse_into_node() == Node__Placeholder(
 		args=(
 			(
 				Node__Placeholder(
@@ -673,10 +582,7 @@ def test_parse_unparse_roundtrip(s: str) -> None:
 		"meta::parse_parens": ("{", "}"),
 		"meta::parse_sep": "|",
 	}
-	root = parse(s)
-	node = root.args[0][0]
-	assert isinstance(node, Node__Placeholder)
-	assert node.unparse(ctx) == s
+	assert unparse(parse(s), ctx) == s
 
 
 def test_stripped() -> None:
@@ -781,4 +687,5 @@ def test_stripped_unparsed(before_strip: str, after_strip: str) -> None:
 		"meta::parse_parens": ("{", "}"),
 		"meta::parse_sep": "|",
 	}
-	assert parse(before_strip).stripped().unparse(ctx) == f"{{{after_strip}}}"
+
+	assert unparse(stripped(parse(before_strip)), ctx) == after_strip

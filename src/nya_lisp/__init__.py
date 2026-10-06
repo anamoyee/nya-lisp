@@ -1,7 +1,10 @@
+from . import error as error
 from ._version import __version__ as __version__
-from .abc import Handler as Handler
+from .abc import HandlerBFS as HandlerBFS
+from .abc import HandlerDFS as HandlerDFS
 from .abc import Matcher as Matcher
-from .abc import Placeholder as Placeholder
+from .abc import PlaceholderBFS as PlaceholderBFS
+from .abc import PlaceholderDFS as PlaceholderDFS
 from .context import ParserMetaContext as ParserMetaContext
 from .context import ParserMetaContext__default as ParserMetaContext__default
 from .context import ParserMetaContext__lisp as ParserMetaContext__lisp
@@ -9,7 +12,8 @@ from .execute import Executor as Executor
 from .parse_ import Node as Node
 from .parse_ import Node__Placeholder as Node__Placeholder
 from .parse_ import Node__Text as Node__Text
-from .parse_ import ParseError as ParseError
 from .parse_ import Parser as Parser
 from .parse_ import parse as parse
+from .parse_ import stripped as stripped
+from .parse_ import unparse as unparse
 from .placeholders_ import premade as placeholders  # ruff: ignore[unused-import]
