@@ -1,8 +1,8 @@
-from ...abc import HandlerDFS
+from ...abc import HandlerDFS, _Matcher__FromHandlerByNames
 from ...context import EmptyContext
 
 
-class ChrHandler(HandlerDFS[EmptyContext]):
+class ChrHandler(HandlerDFS[EmptyContext], _Matcher__FromHandlerByNames):
 	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
 		self._assert_argc(len(args), expect=1)
 
