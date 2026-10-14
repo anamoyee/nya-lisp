@@ -1,10 +1,12 @@
-from ...abc import HandlerDFS, _Matcher__FromHandlerByNames
+from ...abc import HandlerDFS
 from ...context import EmptyContext
 
 
-class ChrHandler(HandlerDFS[EmptyContext], _Matcher__FromHandlerByNames):
+class ChrHandler(
+	HandlerDFS[EmptyContext],
+	ARGC=1,
+):
 	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=1)
 
 		num = self._hh__s2i(*args)
 
@@ -15,14 +17,15 @@ class ChrHandler(HandlerDFS[EmptyContext], _Matcher__FromHandlerByNames):
 		return chr(num)
 
 
-class OrdHandler(HandlerDFS[EmptyContext]):
+class OrdHandler(
+	HandlerDFS[EmptyContext],
+	ARGC=1,
+):
 	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=1)
-
 		arg = args[0]
 
 		if len(arg) != 1:
 			msg = f"Input string {arg!a} must be a single character for 'ord'."
 			raise ValueError(msg)
 
-		return str(ord(arg))
+		return self._hh__i2s(ord(arg))

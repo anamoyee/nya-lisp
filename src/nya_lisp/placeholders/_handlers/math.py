@@ -105,15 +105,16 @@ class PowHandler(HandlerDFS[EmptyContext]):
 		)
 
 
-class SqrtHandler(HandlerDFS[EmptyContext]):
+class SqrtHandler(
+	HandlerDFS[EmptyContext],
+	ARGC=range(2),
+):
 	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=(0, 1))
-
 		if len(args) == 0:
 			return self._hh__f2s(1.0)  # identity
 
 		if len(args) == 1:
 			return self._hh__f2s(math.sqrt(self._hh__s2f(args[0])))
 
-		msg = "unreachable: should have been caught by _assert_args_count"
+		msg = "unreachable: should have been caught by ARGC= check"
 		raise AssertionError(msg)

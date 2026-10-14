@@ -44,13 +44,13 @@ import nya_lisp as nl
 	],
 )
 def test_math_basic(source: str, expected: str) -> None:
-	exe = nl.Executor(*nl.placeholders.math.__ALL_BASIC__)
+	exe = nl.Executor(*nl.placeholder_kits.math.__ALL_BASIC__)
 
 	assert exe(nl.parse(source), ctx={}) == expected
 
 
 def test_math_manual_neg():
-	exe = nl.Executor(*nl.placeholders.math.__ALL_BASIC__)
+	exe = nl.Executor(*nl.placeholder_kits.math.__ALL_BASIC__)
 
 	assert exe(nl.parse("{add|1|-{sub|5|3}}"), ctx={}) == "-1"
 	assert exe(nl.parse("{add|1|-{sub|5|7}}"), ctx={}) == "3"

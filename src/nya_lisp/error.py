@@ -1,5 +1,4 @@
 import dataclasses as _dc
-import operator
 
 
 class BaseNyaLispError(Exception):
@@ -55,13 +54,21 @@ if True:  # HandlerError
 
 	@_dc.dataclass(frozen=True, slots=True)
 	class TooManyOrFewPositionalArgumentsInHandlerError(HandlerError):
-		"""Raised when a handler receives more or fewer positional arguments than it supports."""
+		"""Raised when a handler receives more or fewer positional arguments than it supports.
+
+		If you want this to terminate with a period, like a sentence, append it yourself, this output is supposed to never be terminated with a period.
+		"""
 
 		actual: int
 		"""Represents the actual number of arguments received by the handler."""
 
-		expected: tuple[int | None, int] | tuple[int, int | None] | None
-		"""Represents an inclusive range of the expected number of arguments for the handler, if it's not possible to derive a specific range of arguments count, set this to an untupled None, None in tuple means unbounded on this side."""
+		expected: int | range | None
+		"""Represents the expected amount of arguments that the handler supports:
+
+		- `None`: The valid counts of arguments are unexpressible with int | range, but whatever `actual` is, is invalid.
+		- `int`: The valid count of arguments is exactly {actual}, no more and no fewer.
+		- `range`: There are multiple valid counts of arguments, namely those that are included in this range, this lets you do
+		"""
 
 		def message_to_user(self) -> str:
 			assert self.expected != (None, None), "At least one side of the expected range must be bounded (not None)."
@@ -69,9 +76,8 @@ if True:  # HandlerError
 			if self.expected is None:
 				return f"received {self.actual} positional arguments, which is not a valid amount"
 
-			if operator.eq(*self.expected):
-				assert self.expected[0] is not None
-				return f"received {self.actual} positional arguments (too {"few" if self.actual < self.expected[0] else "many"}), but expected exactly {self.expected[0]}"
+			if isinstance(self.expected, int):
+				return f"received {self.actual} positional arguments (too {"few" if self.actual < self.expected else "many"}), but expected exactly {self.expected}"
 
 			if self.expected[0] is not None and self.actual < self.expected[0]:
 				return f"received {self.actual} positional arguments, but expected at least {self.expected[0]}"

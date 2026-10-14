@@ -2,49 +2,12 @@ from __future__ import annotations
 
 import typing as t
 
-from ...abc import HandlerDFS, PlaceholderBFS
-from ...context import EmptyContext
+from ...abc import PlaceholderBFS
 from ...parse_ import ParserMetaContext
 
 if t.TYPE_CHECKING:
 	from ...execute import Executor
 	from ...parse_ import Node
-
-
-class StrJoinHandler(HandlerDFS[EmptyContext]):
-	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=(1, None))
-
-		joiner, *rest = args
-
-		return joiner.join(rest)
-
-
-class StrLowerHandler(HandlerDFS[EmptyContext]):
-	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=1)
-
-		arg = args[0]
-
-		return arg.lower()
-
-
-class StrUpperHandler(HandlerDFS[EmptyContext]):
-	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=1)
-
-		arg = args[0]
-
-		return arg.upper()
-
-
-class StrTitleHandler(HandlerDFS[EmptyContext]):
-	def handle_dfs(self, name: str, *args: str, ctx: EmptyContext) -> str:
-		self._assert_argc(len(args), expect=1)
-
-		arg = args[0]
-
-		return arg.title()
 
 
 class QuotePlaceholder(PlaceholderBFS[ParserMetaContext]):  # todo: write tests of does this work

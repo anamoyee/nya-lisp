@@ -5,7 +5,7 @@ import dataclasses as _dc
 import typing as t
 from collections.abc import Iterable
 
-from .error import TooManyOrFewPositionalArgumentsInHandlerError
+from . import error
 
 if t.TYPE_CHECKING:
 	from .execute import Executor
@@ -22,6 +22,87 @@ if True:  # Handler?FS
 
 	@_dc.dataclass(frozen=True, slots=True, kw_only=True)
 	class HandlerBFS[ContextT](abc.ABC):
+		"""Base class for all handlers that operate in a breadth-first search/resolve (BFS) manner."""
+
+		ARGC: t.ClassVar[int | range | None] = None
+		"""Validate against a supported number or range of arguments.
+
+		This performs a check on the length of args (i.e. does not take name, the first "argument" into account)
+
+		Supported types:
+		- `None`: No validation is performed (any number of arguments 0..∞ is considered valid).
+		- `int`: The exact number of arguments expected.
+		- `range`: Check whether the length of the arguments is within the given range.
+		"""
+
+		class _init_subclass_TD(t.TypedDict):
+			ARGC: t.NotRequired[int | range | None]
+
+		def __init_subclass__(
+			cls,
+			**kwargs: t.Unpack[_init_subclass_TD],
+		) -> None:
+			kwargs.setdefault("ARGC", cls.ARGC)
+
+			match kwargs:
+				case {
+					"ARGC": ARGC,
+					**rest,
+				}:
+					cls.ARGC = ARGC
+					# NOTE: Cannot use super() here — @dataclass(slots=True) replaces the class
+					# object after the class body runs, leaving the __class__ closure cell stale.
+					# super() expands to super(__class__, cls) where __class__ is the original
+					# pre-replacement class, so issubclass(cls, __class__) is False and it raises.
+					# Fix: find the live declaring class from cls.__mro__ instead.
+					declaring = next(c for c in cls.__mro__ if "__init_subclass__" in c.__dict__ and c is not cls)
+					return super(declaring, cls).__init_subclass__(**rest)
+
+			msg = f"Missing required keyword arguments in {cls.__name__} definition call (`__init_subclass__`): {kwargs!r}"
+			raise TypeError(msg)
+
+		def validate_argc(self, argc: int) -> bool:
+			"""Return True if argc conforms to the `cls.ARGC` supported range of arguments, False otherwise.
+
+			Args:
+				argc: The actual number of arguments passed to the handler, should always be len(args) unless you're doing something sneaky.
+			"""
+
+			match self.ARGC:
+				case None:
+					return True  # assume manual validation in handler or all possible sets of arguments are valid
+				case int() as exact:
+					return argc == exact
+				case range() as range_:
+					return argc in range_
+				case never:
+					t.assert_never(never)
+
+		def _handle_bfs(self, name: str, *args: tuple[Node, ...], ctx: ContextT, executor: Executor[t.Any]) -> str:
+			"""A raw implementation of handle_bfs which calls the appropriate bfs validators and forwards the call to that function.
+
+			This is there so that implementors of the handle_bfs method don't have to call super().handle_bfs() at all times (and possibly forget that which leads to missing validation)
+
+
+			Args:
+				name: The name of the placeholder to handle.
+				args: The arguments to pass to the handler (unexecuted).
+				ctx: The context to use during handling.
+				executor: The executor to use for evaluating the placeholder.
+
+			Returns:
+				The resulting string after handling the placeholder.
+
+			Raises:
+				TooManyOrFewPositionalArgumentsInHandlerError: When a validator fails the validation of argument count.
+			"""
+
+			if self.validate_argc(argc := len(args)):
+				assert self.ARGC is not None
+				raise error.TooManyOrFewPositionalArgumentsInHandlerError(argc, self.ARGC)
+
+			return self.handle_bfs(name, *args, ctx=ctx, executor=executor)
+
 		@abc.abstractmethod
 		def handle_bfs(
 			self,
@@ -43,49 +124,6 @@ if True:  # Handler?FS
 			Returns:
 				The resulting string after handling the placeholder.
 			"""
-
-		def into_matcher(self, name: str, *aliases: str) -> _Matcher__FromHandlerByNames[t.Self, ContextT]:
-			"""Return a matcher that matches the given `name` and `aliases` to this handler.
-
-			Args:
-				name: The primary name of the placeholder to match. (for now there's no distinction between a primary name and an alias, but handlers or matchers may decide to do different things on one given name, but they dont know which is primary)
-				aliases: Additional names that should also match this handler.
-
-			Raises:
-				ValueError: If any of the names have leading or trailing whitespace, which is not supported in `into_matcher()`, if you REALLY need leading or trailing whitespace, write a verbose matcher impl.
-			"""
-
-			if len((name, *aliases)) != len({name, *aliases}):
-				msg = f"Duplicate placeholder names found in {name!r} and {aliases!r}. Each name must be unique. Edit the callsite, this meant to be more of a static helper, if you're using this dynamically, wrap your args in `*{{...}}`"
-				raise ValueError(msg)
-
-			names = {name, *aliases}
-
-			for name_ in names:
-				if name_.strip() != name_:
-					msg = f"Placeholder name {name_!r} has leading or trailing whitespace, which is not supported in `into_matcher()`, if you REALLY need leading or trailing whitespace, write a verbose matcher impl."
-					raise ValueError(msg)
-
-			handler = self
-
-			_Matcher = type(
-				f"{self.__class__.__name__}AutoMatcher",
-				(Matcher,),
-				{
-					"match": lambda self, name, *, ctx: handler if name.lower() in names else None,  # ruff: ignore[unused-lambda-argument]
-				},
-			)
-
-			return _Matcher()
-
-		def _assert_argc[T](self, len_args: int, *, expect: int | tuple[int | None, int] | tuple[int, int | None]) -> None:
-			if isinstance(expect, int):
-				expect = (expect, expect)
-
-			if expect[0] is not None and len_args < expect[0]:
-				raise TooManyOrFewPositionalArgumentsInHandlerError(len_args, expect)
-			if expect[1] is not None and len_args > expect[1]:
-				raise TooManyOrFewPositionalArgumentsInHandlerError(len_args, expect)
 
 		if True:  # _hh__* (handler helpers)
 
@@ -221,8 +259,7 @@ if True:  # Handler?FS
 
 	@_dc.dataclass(frozen=True, slots=True, kw_only=True)
 	class HandlerDFS[ContextT](HandlerBFS[ContextT], abc.ABC):
-		# todo: implement a __init_subclass__() that accepts (*, argc: int | tuple[int, None | int] | tuple[None | int, int] | None = None)
-		# that if neq None, does the _assert_args_count() check within the handle_bfs() (before the args are executed, no point to execute them if the arg count is invalid.)
+		"""Base class for all handlers that operate in a depth-first search/resolve (DFS) manner."""
 
 		def handle_bfs(
 			self,
@@ -265,24 +302,51 @@ if True:  # Handler?FS
 
 if True:  # utility mixins
 
-	class _Matcher__FromHandlerByNames[HandlerT: HandlerBFS, ContextT](Matcher[HandlerBFS[ContextT], ContextT], HandlerBFS[ContextT]):
-		match_names: t.ClassVar[set[str]]
-		match_casefold: t.ClassVar[bool] = True
+	class IntoMatcher__FromHandler_ByNames[HandlerT: HandlerBFS, ContextT](Matcher[HandlerBFS[ContextT], ContextT], HandlerBFS[ContextT]):
+		MATCH_NAMES: t.ClassVar[set[str]] = set()
+		MATCH_CASEFOLD: t.ClassVar[bool] = True
+		# todo: Add tests for casefold, kinda important because i almost screwed up the casefolding, but caught myself and fixed it now
 
-		def __init_subclass__(cls, **kwargs: t.Any) -> None:
-			super().__init_subclass__(**kwargs)
+		class _init_subclass_TD(HandlerBFS._init_subclass_TD):
+			# all have to be NotRequired because otherwise all subclasses would have to explicitly re-define them with the same value which would be annoying...
+			MATCH_NAMES: t.NotRequired[set[str]]
+			MATCH_CASEFOLD: t.NotRequired[bool]
 
-			if not hasattr(cls, "match_names"):
-				msg = f"Subclasses of {cls.__name__!r} must define the `match_names: t.ClassVar[set[str]]` class variable."
-				raise AssertionError(msg)  # raise even when in -OO mode
+		def __init_subclass__(
+			cls,
+			**kwargs: t.Unpack[_init_subclass_TD],
+		) -> None:
+			kwargs.setdefault("MATCH_CASEFOLD", cls.MATCH_CASEFOLD)
+			kwargs.setdefault("MATCH_NAMES", cls.MATCH_NAMES)
 
-			if cls.match_casefold:
-				casefolded = {n.casefold() for n in cls.match_names}
-				cls.match_names.clear()
-				cls.match_names.update(casefolded)
+			if kwargs["MATCH_NAMES"] == set():
+				msg = f"MATCH_NAMES must be a non-empty set of strings in {cls.__name__!r} definition call (`__init_subclass__`)"
+				raise ValueError(msg)
+
+			match kwargs:
+				case {
+					"ARGC": ARGC,
+					"MATCH_NAMES": MATCH_NAMES,
+					"MATCH_CASEFOLD": MATCH_CASEFOLD,
+					**rest,
+				}:
+					cls.MATCH_CASEFOLD = MATCH_CASEFOLD
+					cls.MATCH_NAMES = MATCH_NAMES
+					# NOTE: Same super() / @dataclass(slots=True) stale __class__ issue as in
+					# HandlerBFS.__init_subclass__ — use live MRO lookup instead.
+					declaring = next(c for c in cls.__mro__ if "__init_subclass__" in c.__dict__ and c is not cls)
+					return super(declaring, cls).__init_subclass__(ARGC=ARGC, **rest)
+
+			msg = f"Missing required keyword arguments in {cls.__name__} definition call (`__init_subclass__`): {kwargs!r}"
+			raise TypeError(msg)
 
 		def match(self, name: str, *, ctx: ContextT) -> HandlerBFS[ContextT] | None:
-			if (name.casefold() if self.match_casefold else name) in self.match_names:
+			if self.MATCH_CASEFOLD:  # ruff: ignore[if-else-block-instead-of-if-exp]
+				matched = name.casefold() in {n.casefold() for n in self.MATCH_NAMES}
+			else:
+				matched = name in self.MATCH_NAMES
+
+			if matched:
 				return self
 
 			return None
@@ -295,10 +359,3 @@ if True:  # Placeholder
 
 	class PlaceholderDFS[ContextT](HandlerDFS[ContextT], Matcher[HandlerDFS[ContextT], ContextT]):
 		"""A placeholder is a matcher and handler in one type. This is only a shorthand, functions as a convenience for the implementor. The mechanism actually looks for a `Matcher[Handler[...], ...]`."""
-
-
-if True:  # ClassVar subclasses workaround
-	_Matcher = Matcher
-
-	class Matcher[HandlerT: HandlerBFS, ContextT](Matcher[HandlerT, ContextT], abc.ABC):
-		FromHandlerByNames = _Matcher__FromHandlerByNames
